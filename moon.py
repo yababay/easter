@@ -2,25 +2,38 @@ import math
 import sys
 from skyfield.api import load
 from skyfield.framelib import ecliptic_frame
-from util import get_easter, to_gregorian 
-from moon import get_equinox
+from datetime import date, timedelta
 
 eph = load('de422.bsp') 
 sun, moon, earth = eph['sun'], eph['moon'], eph['earth']
 ts = load.timescale()
 
-def get_moon_illumination(year, month, day, hour=12):
+def get_moon_illumination(year, month, day, hour=0):
     t = ts.utc(year, month, day, hour)
     e = earth.at(t)
     m = e.observe(moon).apparent()
-    #s = e.observe(sun).apparent()
-    #_, slon, _ = s.frame_latlon(ecliptic_frame)
-    #_, mlon, _ = m.frame_latlon(ecliptic_frame)
-    # phase = (mlon.degrees - slon.degrees) % 360.0
     return 100.0 * m.fraction_illuminated(sun)
-#
-#    return {
-#        "date": t.utc_strftime('%Y-%m-%d %H:%M'),
-#        "illumination": percent_illuminated,
-#        "phase": phase
-#    }
+
+def get_brightest(dt):
+    y = dt.year
+    m = dt.month
+    d = dt.day
+    best_illum = get_moon_illumination(y, m, d)
+    best_date = dt
+    count = 0
+    while True:
+        dt = dt - timedelta(days=1)
+        y = dt.year
+        m = dt.month
+        d = dt.day
+        prev = get_moon_illumination(y, m, d)
+        count += 1
+        if prev > best_illum: 
+            best_illum = prev
+            best_date = date(y, m, d)
+        if m == 3 and d == 22 or count > 14: return best_date
+
+if __name__ == "__main__":
+
+    brst = get_brightest(date(2026, 4, 12))
+    print(brst)
