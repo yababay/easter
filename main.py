@@ -28,7 +28,8 @@ def get_row(year):
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
-        for year in range(2020, 2027): #(325, 2027):
+        for year in range(325, 2027): #(325, 2027):
+            if year % 10: continue
             print(year)
             row = get_row(year)
             df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
