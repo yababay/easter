@@ -1,49 +1,50 @@
-import sys
 import pandas as pd
 
-from datetime import date
-from util import get_easter, to_gregorian 
-from equinox import get_equinox
-from moon import get_moon_illumination, get_brightest
-from util import get_easter
+from datetime import datetime, timedelta, date
+from skyfield.api import load, Star, wgs84
+from skyfield.data import hipparcos
+from zoneinfo import ZoneInfo
 
-df = pd.DataFrame(columns=['easter', 'ortodox_moon_greg', 'illumination', 'brightest_moon', 'diff_in_days', 'ortodox_moon_jul'])
+tz = ZoneInfo('Europe/Moscow')
 
-def get_row(year):
-    yj, mj, dj = get_equinox(year)
-    yg, mg, dg = to_gregorian(yj, mj, dj)
-    illum = get_moon_illumination(yg, mg, dg)
-    easter  = get_easter(year)
-    brightest = get_brightest(easter)
-    diff = (date(yg, mg, dg) - brightest).days
-    return {
-        'easter': easter,
-        'ortodox_moon_greg': date(yg, mg, dg), 
-        'ortodox_moon_jul':  date(yj, mj, dj), 
-        'brightest_moon':    brightest, 
-        'diff_in_days':      diff,
-        'illumination':      get_moon_illumination(yg, mg, dg)
-    }
+# Load Hipparcos catalog and find Sirius
+with load.open(hipparcos.URL) as f:
+    df = hipparcos.load_dataframe(f)
+
+sirius = Star.from_dataframe(df.loc[32349])
+
+earth = load('de421.bsp')['earth']
+moscow = earth + wgs84.latlon(55.7558, 37.6173, elevation_m=150)
+ts = load.timescale()
+
+def delta_in_minutes(dt):
+    mins = dt.minute
+    hours = dt.hour
+    return mins - 60 if hours == 23 else mins
+
+def get_max_alt(dt):
+    t = ts.from_datetime(dt)
+    max_alt, _, _ = moscow.at(t).observe(sirius).apparent().altaz()
+    max_dt = dt
+
+    for m in range(10, 8 * 6):
+        dt = dt + timedelta(minutes=m)
+        t = ts.from_datetime(dt)
+        alt, _, _ = moscow.at(t).observe(sirius).apparent().altaz()
+        if alt.radians > max_alt.radians:
+            max_alt = alt
+            max_dt = dt
+    return max_dt
 
 if __name__ == "__main__":
-
-    if len(sys.argv) != 2:
-        for year in range(325, 2027): #(325, 2027):
-            if year % 10: continue
-            print(year)
-            row = get_row(year)
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-        df.to_csv('output.csv', index=False)
-
-    else: 
-        year = int(sys.argv[1])
-        y, m, d = get_equinox(year)
-        yg, mg, dg = to_gregorian(y, m, d)
-        illum = get_moon_illumination(yg, mg, dg)
-        d_easter  = get_easter(year)
-        brightest = get_brightest(d_easter)
-        print(f"Дата Пасхи: {d_easter}")
-        print(f"Дата полнолуния: {date(yg, mg, dg)}")
-        print(f"Дата полнолуния (астр.): {brightest}")
-        print(f"Дата полнолуния (юл.): {date(y, m, d)}")
-        print(f"Освещенность Луны: {illum:10.2f} %")
+    dec_1 = datetime(2025, 12, 25, 21, 0, 0, tzinfo=tz)
+    out_df = pd.DataFrame(columns=['date', 'delta', 'midnight'])
+    for d in range(0, 29):
+        dt = get_max_alt(dec_1 + timedelta(days=d))
+        row = {
+            'date':  str(dt)[0:10],
+            'delta': delta_in_minutes(dt),
+            'midnight': 0
+        }
+        out_df = pd.concat([out_df, pd.DataFrame([row])], ignore_index=True)
+    out_df.to_csv('sirius.csv', index=False)
