@@ -1,0 +1,9 @@
+certifi==2026.2.25
+jplephem==2.24
+juliandate==1.0.5
+numpy==2.4.3
+pandas==3.0.1
+python-dateutil==2.9.0.post0
+sgp4==2.25
+six==1.17.0
+skyfield==1.54

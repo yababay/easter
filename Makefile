@@ -7,4 +7,4 @@ test:
 git:
 	git add .
 	git commit -am hz
-
+	git push origin main
