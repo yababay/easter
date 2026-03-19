@@ -4,7 +4,7 @@ all:
 git:
 	git add .
 	git commit -am hz
-	git push origin sirius
+	git push origin sun
 
 act:
 	@echo 'source .venv/bin/activate'
